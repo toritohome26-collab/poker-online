@@ -26,6 +26,7 @@ class GameRoom {
     this.dealerIndex = 0;
     this.currentPlayerIndex = -1;
     this.actionTimeout = null;
+    this.actedPlayers = new Set();
     this.chat = [];
     this._handStartTimer = null;
   }
@@ -104,6 +105,7 @@ class GameRoom {
 
     this.phase = PHASES.PRE_FLOP;
     this.currentPlayerIndex = (bbIdx + 1) % this.players.length;
+    this.actedPlayers = new Set(); // track who acted this betting round
 
     this._broadcastGameState();
     this._scheduleActionTimeout();
@@ -160,6 +162,7 @@ class GameRoom {
         return { error: 'Acción inválida' };
     }
 
+    this.actedPlayers.add(player.id);
     this._broadcast('action', { playerId: player.id, action, amount: player.bet, tableId: this.id });
     this._nextTurn();
     return { ok: true };
@@ -179,8 +182,10 @@ class GameRoom {
     if (activePlayers.length === 0) return this._runOutBoard();
     if (activePlayers.length === 1 && this._getAllInPlayers().length === 0) return this._endRound();
 
+    // Round ends when all active players have acted AND bets are equal
+    const allActed = activePlayers.every(p => this.actedPlayers.has(p.id));
     const allEqual = activePlayers.every(p => p.bet === this.currentBet);
-    if (allEqual) return this._advancePhase();
+    if (allActed && allEqual) return this._advancePhase();
 
     let next = (this.currentPlayerIndex + 1) % this.players.length;
     let tries = 0;
@@ -198,6 +203,7 @@ class GameRoom {
   _advancePhase() {
     this.players.forEach(p => { p.bet = 0; });
     this.currentBet = 0;
+    this.actedPlayers = new Set(); // reset for new betting round
 
     const stillIn = this.players.filter(p => p.status !== 'folded');
     if (stillIn.length <= 1) return this._endRound();
