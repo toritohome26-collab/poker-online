@@ -25,7 +25,7 @@ router.post('/register', async (req, res) => {
     const status = isAdmin ? 'active' : 'pending';
 
     const user = {
-      _id: id, id, username, email, passwordHash,
+      id, username, email, passwordHash,
       chips: isAdmin ? 99999 : 0,
       totalWins: 0, totalHands: 0,
       isAdmin, status,
@@ -40,8 +40,9 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign({ id, username, isAdmin }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ token, user: { id, username, chips: user.chips, isAdmin } });
   } catch (err) {
-    if (err.errorType === 'uniqueViolated') return res.status(409).json({ error: 'Usuario o email ya registrado' });
-    res.status(500).json({ error: 'Error interno' });
+    console.error('Register error:', err.message || err);
+    if (err.code === 11000) return res.status(409).json({ error: 'Usuario o email ya registrado' });
+    res.status(500).json({ error: 'Error interno: ' + (err.message || err) });
   }
 });
 
