@@ -38,14 +38,22 @@ export default function BettingControls({ gameState, myPlayer, onAction, disable
           <button onClick={() => onAction('check')} className="btn flex-1 bg-gray-600 hover:bg-gray-500 text-white">
             Check
           </button>
+        ) : toCall >= myPlayer.chips ? (
+          // Can't afford full call — go all-in for remaining chips
+          <button onClick={() => onAction('all-in')} className="btn flex-1 bg-green-700 hover:bg-green-600 text-white font-bold">
+            Call All-In ({myPlayer.chips.toLocaleString()})
+          </button>
         ) : (
-          <button onClick={() => onAction('call')} disabled={toCall > myPlayer.chips} className="btn flex-1 bg-green-700 hover:bg-green-600 text-white">
-            Call {toCall > myPlayer.chips ? '(All-in)' : toCall.toLocaleString()}
+          <button onClick={() => onAction('call')} className="btn flex-1 bg-green-700 hover:bg-green-600 text-white">
+            Call {toCall.toLocaleString()}
           </button>
         )}
-        <button onClick={() => onAction('all-in')} className="btn flex-1 bg-purple-700 hover:bg-purple-600 text-white font-bold">
-          All-In
-        </button>
+        {/* Show All-In separately only when player has more chips than needed to call */}
+        {!canCheck && toCall < myPlayer.chips && (
+          <button onClick={() => onAction('all-in')} className="btn flex-1 bg-purple-700 hover:bg-purple-600 text-white font-bold">
+            All-In
+          </button>
+        )}
       </div>
 
       {/* Raise controls */}
