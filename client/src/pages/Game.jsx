@@ -7,25 +7,26 @@ import PlayerSeat from '../components/PlayerSeat';
 import BettingControls from '../components/BettingControls';
 import Chat from '../components/Chat';
 
-// Seat positions around an oval table (CSS %)
+// Positions as % of table container (top, left) for up to 9 seats
+// Adjusted for mobile-first oval layout
 const SEAT_POSITIONS = [
-  { bottom: '2%', left: '50%', transform: 'translateX(-50%)' },       // 0 - bottom center (me)
-  { bottom: '10%', left: '15%' },                                       // 1 - bottom left
-  { top: '50%', left: '2%', transform: 'translateY(-50%)' },           // 2 - mid left
-  { top: '15%', left: '12%' },                                          // 3 - top left
-  { top: '5%', left: '50%', transform: 'translateX(-50%)' },           // 4 - top center
-  { top: '15%', right: '12%' },                                         // 5 - top right
-  { top: '50%', right: '2%', transform: 'translateY(-50%)' },          // 6 - mid right
-  { bottom: '10%', right: '15%' },                                      // 7 - bottom right
-  { bottom: '2%', right: '20%' },                                       // 8 - extra
+  { bottom: '2%',  left: '50%',  transform: 'translateX(-50%)' },   // 0 bottom center (me)
+  { bottom: '12%', left: '10%' },                                     // 1 bottom left
+  { top: '50%',    left: '2%',   transform: 'translateY(-50%)' },    // 2 mid left
+  { top: '12%',    left: '10%' },                                     // 3 top left
+  { top: '2%',     left: '50%',  transform: 'translateX(-50%)' },    // 4 top center
+  { top: '12%',    right: '10%' },                                    // 5 top right
+  { top: '50%',    right: '2%',  transform: 'translateY(-50%)' },    // 6 mid right
+  { bottom: '12%', right: '10%' },                                    // 7 bottom right
+  { bottom: '2%',  right: '18%' },                                    // 8 extra
 ];
 
 const PHASE_LABELS = {
-  waiting: '⏳ Esperando jugadores',
+  waiting:  '⏳ Esperando jugadores',
   pre_flop: '🃏 Pre-Flop',
-  flop: '🃏 Flop',
-  turn: '🃏 Turn',
-  river: '🃏 River',
+  flop:     '🃏 Flop',
+  turn:     '🃏 Turn',
+  river:    '🃏 River',
   showdown: '🎭 Showdown',
 };
 
@@ -33,18 +34,20 @@ export default function Game() {
   const { tableId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [gameState, setGameState] = useState(null);
-  const [myCards, setMyCards] = useState([]);
-  const [chat, setChat] = useState([]);
-  const [tableInfo, setTableInfo] = useState(null);
-  const [showdown, setShowdown] = useState(null);
-  const [winner, setWinner] = useState(null);
+
+  const [gameState, setGameState]   = useState(null);
+  const [myCards, setMyCards]       = useState([]);
+  const [chat, setChat]             = useState([]);
+  const [tableInfo, setTableInfo]   = useState(null);
+  const [showdown, setShowdown]     = useState(null);
   const [notification, setNotification] = useState('');
-  const [buyIn, setBuyIn] = useState(null);
-  const [showBuyIn, setShowBuyIn] = useState(false);
+  const [buyIn, setBuyIn]           = useState(null);
+  const [showBuyIn, setShowBuyIn]   = useState(false);
+  const [showChat, setShowChat]     = useState(false);
+  const [unread, setUnread]         = useState(0);
   const socketRef = useRef(null);
 
-  const notify = useCallback((msg, duration = 3000) => {
+  const notify = useCallback((msg, duration = 3500) => {
     setNotification(msg);
     setTimeout(() => setNotification(''), duration);
   }, []);
@@ -52,11 +55,7 @@ export default function Game() {
   useEffect(() => {
     API.get('/lobby/tables').then(({ data }) => {
       const table = data.find(t => t.id === tableId);
-      if (table) {
-        setTableInfo(table);
-        setBuyIn(table.min_buy_in);
-        setShowBuyIn(true);
-      }
+      if (table) { setTableInfo(table); setBuyIn(table.min_buy_in); setShowBuyIn(true); }
     }).catch(() => {});
   }, [tableId]);
 
@@ -64,7 +63,6 @@ export default function Game() {
     const token = localStorage.getItem('token');
     const socket = getSocket(token);
     socketRef.current = socket;
-
     socket.emit('join_table', { tableId, buyIn: amount });
 
     socket.on('game_state', (state) => {
@@ -73,19 +71,12 @@ export default function Game() {
       if (state.myCards) setMyCards(state.myCards);
       if (state.chat) setChat(state.chat);
       setShowdown(null);
-      setWinner(null);
     });
-
     socket.on('joined_table', ({ state }) => {
       if (state.myCards) setMyCards(state.myCards);
       if (state.chat) setChat(state.chat);
       setGameState(state);
     });
-
-    socket.on('action', ({ playerId, action, tableId: tid, timeout }) => {
-      if (tid !== tableId) return;
-    });
-
     socket.on('showdown', (data) => {
       if (data.tableId !== tableId) return;
       setShowdown(data);
@@ -93,62 +84,36 @@ export default function Game() {
       const myResult = data.results.find(r => r.playerId === user.id);
       if (myResult) setMyCards(myResult.holeCards || []);
     });
-
     socket.on('winner', (data) => {
       if (data.tableId !== tableId) return;
-      setWinner(data);
-      notify(`🏆 ${data.winnerId === user.id ? '¡Ganaste!' : 'El jugador ganó'} ${data.winAmount.toLocaleString()} fichas`, 4000);
+      notify(data.winnerId === user.id ? `🏆 ¡Ganaste ${data.winAmount.toLocaleString()} fichas!` : `El jugador ganó ${data.winAmount.toLocaleString()} fichas`, 4000);
     });
-
     socket.on('player_bust', ({ playerId }) => {
-      if (playerId === user.id) notify('Te quedaste sin fichas. Volvé al lobby para recargar.', 6000);
+      if (playerId === user.id) notify('Te quedaste sin fichas. Volvé al lobby.', 6000);
     });
-
     socket.on('chat_message', (msg) => {
       if (msg.tableId !== tableId) return;
       setChat(prev => [...prev, msg].slice(-100));
+      setUnread(n => n + 1);
     });
-
     socket.on('error', ({ message }) => notify(`⚠️ ${message}`, 4000));
-
     socket.on('left_table', () => navigate('/lobby'));
 
     return () => {
-      socket.off('game_state');
-      socket.off('joined_table');
-      socket.off('action');
-      socket.off('showdown');
-      socket.off('winner');
-      socket.off('player_bust');
-      socket.off('chat_message');
-      socket.off('error');
-      socket.off('left_table');
+      ['game_state','joined_table','showdown','winner','player_bust','chat_message','error','left_table']
+        .forEach(e => socket.off(e));
     };
   }, [tableId, user.id, navigate, notify]);
 
-  const handleJoin = (amount) => {
-    setShowBuyIn(false);
-    joinTable(amount);
-  };
+  const handleJoin    = (amount) => { setShowBuyIn(false); joinTable(amount); };
+  const handleAction  = useCallback((action, amount) => { socketRef.current?.emit('action', { tableId, action, amount }); }, [tableId]);
+  const handleChat    = useCallback((text) => { socketRef.current?.emit('chat', { tableId, text }); }, [tableId]);
+  const handleLeave   = () => { socketRef.current?.emit('leave_table', { tableId }); navigate('/lobby'); };
 
-  const handleAction = useCallback((action, amount) => {
-    socketRef.current?.emit('action', { tableId, action, amount });
-  }, [tableId]);
+  const myPlayer   = gameState?.players?.find(p => p.id === user.id);
+  const isMyTurn   = gameState?.currentPlayerId === user.id;
+  const community  = gameState?.communityCards || [];
 
-  const handleChat = useCallback((text) => {
-    socketRef.current?.emit('chat', { tableId, text });
-  }, [tableId]);
-
-  const handleLeave = () => {
-    socketRef.current?.emit('leave_table', { tableId });
-    navigate('/lobby');
-  };
-
-  const myPlayer = gameState?.players?.find(p => p.id === user.id);
-  const isMyTurn = gameState?.currentPlayerId === user.id;
-  const communityCards = gameState?.communityCards || [];
-
-  // Arrange players with me at seat 0
   const getDisplayPlayers = () => {
     if (!gameState?.players) return Array(9).fill(null);
     const result = Array(9).fill(null);
@@ -161,8 +126,9 @@ export default function Game() {
   };
 
   const displayPlayers = getDisplayPlayers();
-  const dealerPlayer = gameState?.players?.[gameState?.dealerIndex];
+  const dealerPlayer   = gameState?.players?.[gameState?.dealerIndex];
 
+  // ── Buy-in screen ──────────────────────────────────────────────
   if (showBuyIn && tableInfo) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
@@ -187,118 +153,134 @@ export default function Game() {
     );
   }
 
+  // ── Game screen ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col" style={{ height: '100vh' }}>
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-xl">♠</span>
-          <span className="font-bold text-gold">{tableInfo?.name || 'Mesa'}</span>
-          {gameState && <span className="text-sm text-gray-400">{PHASE_LABELS[gameState.phase]}</span>}
+    <div className="flex flex-col bg-gray-900" style={{ height: '100dvh' }}>
+
+      {/* ── Header ── */}
+      <header className="flex-shrink-0 bg-gray-800 border-b border-gray-700 px-3 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-lg">♠</span>
+          <span className="font-bold text-gold text-sm truncate">{tableInfo?.name || 'Mesa'}</span>
+          {gameState && <span className="text-xs text-gray-400 hidden sm:inline">{PHASE_LABELS[gameState.phase]}</span>}
         </div>
-        <div className="flex items-center gap-3">
-          {myPlayer && <span className="text-sm text-gold">🪙 {myPlayer.chips?.toLocaleString()}</span>}
-          <button onClick={handleLeave} className="btn-ghost text-sm py-1">Salir</button>
+        <div className="flex items-center gap-2">
+          {myPlayer && <span className="text-xs text-gold">🪙 {myPlayer.chips?.toLocaleString()}</span>}
+          {/* Chat toggle (mobile) */}
+          <button
+            onClick={() => { setShowChat(v => !v); setUnread(0); }}
+            className="relative btn-ghost text-xs py-1 px-2"
+          >
+            💬
+            {unread > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{unread}</span>}
+          </button>
+          <button onClick={handleLeave} className="btn-ghost text-xs py-1 px-2">Salir</button>
         </div>
       </header>
 
-      {/* Main layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Poker Table */}
-        <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
+      {/* ── Notification ── */}
+      {notification && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gold text-gold px-4 py-2 rounded-xl font-semibold text-sm shadow-2xl text-center max-w-xs">
+          {notification}
+        </div>
+      )}
 
-          {/* Notification */}
-          {notification && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gold text-gold px-6 py-3 rounded-xl font-semibold text-sm shadow-2xl animate-bounce">
-              {notification}
-            </div>
-          )}
+      {/* ── Table area ── */}
+      <div className="flex-1 flex flex-col items-center justify-center overflow-hidden px-2 py-2 relative">
 
-          {/* Table oval */}
-          <div className="relative w-full max-w-3xl" style={{ height: '420px' }}>
-            {/* Felt surface */}
-            <div className="absolute inset-8 rounded-[50%] bg-felt border-8 border-felt-dark shadow-2xl" style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.4), 0 0 40px rgba(0,0,0,0.6)' }}>
-              {/* Center info */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {/* Community cards */}
-                <div className="flex gap-2 mb-3">
-                  {[0,1,2,3,4].map(i => (
-                    communityCards[i]
-                      ? <Card key={i} card={communityCards[i]} />
-                      : <div key={i} className="w-16 h-24 rounded-lg border-2 border-dashed border-green-800 opacity-30" />
-                  ))}
+        {/* Table oval — responsive square container */}
+        <div className="relative w-full" style={{ maxWidth: 600, aspectRatio: '3/2' }}>
+          {/* Felt */}
+          <div
+            className="absolute rounded-[50%] bg-felt border-[6px] border-felt-dark shadow-2xl"
+            style={{ inset: '8%', boxShadow: 'inset 0 0 50px rgba(0,0,0,0.5), 0 0 30px rgba(0,0,0,0.7)' }}
+          >
+            {/* Center */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4">
+              {/* Community cards */}
+              <div className="flex gap-1">
+                {[0,1,2,3,4].map(i => (
+                  community[i]
+                    ? <Card key={i} card={community[i]} small />
+                    : <div key={i} className="w-8 h-11 sm:w-10 sm:h-14 rounded border border-dashed border-green-800 opacity-30" />
+                ))}
+              </div>
+              {/* Pot */}
+              {gameState?.pot > 0 && (
+                <div className="bg-gray-900/70 px-3 py-0.5 rounded-full text-gold font-bold text-xs">
+                  Pot: {gameState.pot.toLocaleString()} 🪙
                 </div>
-                {/* Pot */}
-                {gameState?.pot > 0 && (
-                  <div className="bg-gray-900/60 px-4 py-1 rounded-full text-gold font-bold text-sm">
-                    Pot: {gameState.pot.toLocaleString()} 🪙
-                  </div>
-                )}
-                {/* Phase */}
-                {gameState?.phase === 'waiting' && (
-                  <div className="text-green-300 text-sm mt-2 animate-pulse">
-                    {gameState.players?.length < 2 ? 'Esperando más jugadores...' : 'Iniciando mano...'}
+              )}
+              {gameState?.phase === 'waiting' && (
+                <div className="text-green-300 text-xs animate-pulse text-center">
+                  {(gameState.players?.length || 0) < 2 ? 'Esperando jugadores...' : 'Iniciando mano...'}
+                </div>
+              )}
+              {gameState?.phase && gameState.phase !== 'waiting' && (
+                <div className="text-xs text-green-200 opacity-70">{PHASE_LABELS[gameState.phase]}</div>
+              )}
+            </div>
+          </div>
+
+          {/* Player seats */}
+          {displayPlayers.slice(0, 9).map((player, i) => {
+            const pos = SEAT_POSITIONS[i];
+            const isDealer = player && dealerPlayer && player.id === dealerPlayer.id;
+            const isMePlayer = player?.id === user.id;
+            const showdownResult = showdown?.results?.find(r => r.playerId === player?.id);
+            const cards = isMePlayer ? myCards : (showdownResult ? showdownResult.holeCards : (player ? [null, null] : []));
+            const showCards = isMePlayer || !!showdownResult;
+
+            return (
+              <div key={i} className="absolute" style={pos}>
+                <PlayerSeat
+                  player={player}
+                  isMe={isMePlayer}
+                  isCurrent={gameState?.currentPlayerId === player?.id}
+                  isDealer={isDealer}
+                  cards={cards}
+                  showCards={showCards}
+                />
+                {showdownResult && (
+                  <div className="text-center mt-0.5">
+                    <span className="text-xs bg-gray-900/90 text-yellow-300 px-1 py-0.5 rounded">{showdownResult.hand}</span>
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Players around the table */}
-            {displayPlayers.slice(0, 9).map((player, i) => {
-              const pos = SEAT_POSITIONS[i];
-              const isDealer = player && dealerPlayer && player.id === dealerPlayer.id;
-              const showCards = player?.id === user.id;
-              const cards = showCards ? myCards : (player ? [null, null] : []);
-              const showdownResult = showdown?.results?.find(r => r.playerId === player?.id);
-
-              return (
-                <div key={i} className="absolute" style={pos}>
-                  <PlayerSeat
-                    player={player}
-                    isMe={player?.id === user.id}
-                    isCurrent={gameState?.currentPlayerId === player?.id}
-                    isDealer={isDealer}
-                    cards={showCards ? myCards : (showdownResult ? showdownResult.holeCards : (player ? [null, null] : []))}
-                    showCards={showCards || !!showdownResult}
-                  />
-                  {showdownResult && (
-                    <div className="text-center mt-1">
-                      <span className="text-xs bg-gray-900/90 text-yellow-300 px-2 py-0.5 rounded">{showdownResult.hand}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* My hole cards (large display below table) */}
-          {myCards.length > 0 && gameState?.phase !== 'waiting' && (
-            <div className="flex gap-3 mt-4">
-              {myCards.map((c, i) => <Card key={i} card={c} />)}
-            </div>
-          )}
-
-          {/* Betting controls */}
-          <div className="mt-4 w-full max-w-lg px-4">
-            <BettingControls
-              gameState={gameState}
-              myPlayer={myPlayer}
-              onAction={handleAction}
-              disabled={!isMyTurn}
-            />
-            {isMyTurn && (
-              <div className="text-center text-gold text-sm mt-2 animate-pulse font-semibold">
-                ⚡ ¡Es tu turno!
-              </div>
-            )}
-          </div>
+            );
+          })}
         </div>
 
-        {/* Chat sidebar */}
-        <div className="w-64 flex-shrink-0 p-4 flex flex-col">
-          <Chat messages={chat} onSend={handleChat} username={user.username} />
+        {/* My hole cards */}
+        {myCards.length > 0 && gameState?.phase !== 'waiting' && (
+          <div className="flex gap-2 mt-2">
+            {myCards.map((c, i) => <Card key={i} card={c} small />)}
+          </div>
+        )}
+
+        {/* Betting controls */}
+        <div className="w-full max-w-lg px-2 mt-2">
+          <BettingControls gameState={gameState} myPlayer={myPlayer} onAction={handleAction} disabled={!isMyTurn} />
+          {isMyTurn && (
+            <div className="text-center text-gold text-xs mt-1 animate-pulse font-semibold">⚡ ¡Es tu turno!</div>
+          )}
         </div>
       </div>
+
+      {/* ── Chat drawer (slides up on mobile) ── */}
+      {showChat && (
+        <div className="fixed inset-0 z-40 bg-black/60 flex flex-col justify-end" onClick={() => setShowChat(false)}>
+          <div className="bg-gray-900 rounded-t-2xl h-2/3 flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+              <span className="font-semibold">Chat</span>
+              <button onClick={() => setShowChat(false)} className="text-gray-400 text-xl">✕</button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <Chat messages={chat} onSend={(t) => { handleChat(t); }} username={user.username} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
