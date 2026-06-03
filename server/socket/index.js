@@ -5,6 +5,17 @@ const { JWT_SECRET } = require('../middleware/auth');
 
 const gameRooms = new Map();
 
+// Cleanup empty rooms after delay (don't delete immediately on disconnect)
+function scheduleRoomCleanup(tableId) {
+  setTimeout(() => {
+    const room = gameRooms.get(tableId);
+    if (room && room.getPlayerCount() === 0 && room.getStatus() === 'waiting') {
+      gameRooms.delete(tableId);
+      console.log(`Room ${tableId} cleaned up`);
+    }
+  }, 30000); // 30 seconds grace period
+}
+
 function initSocket(io) {
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -26,6 +37,7 @@ function initSocket(io) {
         room.updateSocket(userId, socket.id);
         socket.join(tableId);
         socket.emit('game_state', room.getFullState(userId));
+        console.log(`${username} reconnected to room ${tableId}`);
       }
     }
 
@@ -63,14 +75,17 @@ function initSocket(io) {
       if (room) {
         await room.removePlayer(socket.id);
         socket.leave(tableId);
-        if (room.getPlayerCount() === 0) gameRooms.delete(tableId);
+        scheduleRoomCleanup(tableId);
       }
       socket.emit('left_table', { tableId });
     });
 
     socket.on('action', ({ tableId, action, amount }) => {
       const room = gameRooms.get(tableId);
-      if (!room) return socket.emit('error', { message: 'Mesa no encontrada' });
+      if (!room) {
+        console.log(`Action: room ${tableId} not found. Rooms: ${[...gameRooms.keys()]}`);
+        return socket.emit('error', { message: 'Mesa no encontrada' });
+      }
       const result = room.handleAction(socket.id, action, amount);
       if (result?.error) socket.emit('error', { message: result.error });
     });
@@ -88,9 +103,17 @@ function initSocket(io) {
 
     socket.on('disconnect', async () => {
       for (const [tableId, room] of gameRooms) {
-        if (room.players.find(p => p.socketId === socket.id)) {
-          await room.removePlayer(socket.id);
-          if (room.getPlayerCount() === 0) gameRooms.delete(tableId);
+        const player = room.players.find(p => p.socketId === socket.id);
+        if (player) {
+          // Don't remove immediately — give time to reconnect
+          setTimeout(async () => {
+            // Check if player reconnected (socket id would have changed)
+            const stillDisconnected = !room.players.find(p => p.id === player.id && p.socketId !== socket.id);
+            if (stillDisconnected && room.players.find(p => p.socketId === socket.id)) {
+              await room.removePlayer(socket.id);
+              scheduleRoomCleanup(tableId);
+            }
+          }, 10000); // 10 second grace period before removing
         }
       }
     });
