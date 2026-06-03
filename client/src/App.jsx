@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Lobby from './pages/Lobby';
 import Game from './pages/Game';
+import Admin from './pages/Admin';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/lobby" element={<PrivateRoute><Lobby /></PrivateRoute>} />
         <Route path="/game/:tableId" element={<PrivateRoute><Game /></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/lobby" replace />} />
       </Routes>
     </AuthProvider>

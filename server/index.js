@@ -7,6 +7,7 @@ const path = require('path');
 
 const authRoutes = require('./routes/auth');
 const lobbyRoutes = require('./routes/lobby');
+const adminRoutes = require('./routes/admin');
 const { initSocket, gameRooms } = require('./socket/index');
 
 const app = express();
@@ -27,6 +28,7 @@ app.use('/api/auth', authRoutes);
 const rooms = initSocket(io);
 lobbyRoutes.setGameRooms(rooms);
 app.use('/api/lobby', lobbyRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 

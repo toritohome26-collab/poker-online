@@ -75,6 +75,7 @@ export default function Lobby() {
             </div>
           </div>
           <button onClick={fetchLeaderboard} className="btn-ghost text-sm">Ranking</button>
+          {user?.isAdmin && <button onClick={() => navigate('/admin')} className="btn text-sm py-1 px-3 bg-gold text-gray-900 font-bold">⚙ Admin</button>}
           <button onClick={logout} className="btn-ghost text-sm">Salir</button>
         </div>
       </header>
