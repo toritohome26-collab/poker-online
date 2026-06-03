@@ -40,6 +40,7 @@ export default function Game() {
   const [chat, setChat]             = useState([]);
   const [tableInfo, setTableInfo]   = useState(null);
   const [showdown, setShowdown]     = useState(null);
+  const [winnerOverlay, setWinnerOverlay] = useState(null);
   const [notification, setNotification] = useState('');
   const [buyIn, setBuyIn]           = useState(null);
   const [showBuyIn, setShowBuyIn]   = useState(false);
@@ -83,10 +84,14 @@ export default function Game() {
       setGameState(g => g ? { ...g, communityCards: data.communityCards, phase: 'showdown' } : g);
       const myResult = data.results.find(r => r.playerId === user.id);
       if (myResult) setMyCards(myResult.holeCards || []);
+      // Show winner overlay
+      setWinnerOverlay({ winners: data.winners, results: data.results, pot: data.pot });
+      setTimeout(() => setWinnerOverlay(null), 5000);
     });
     socket.on('winner', (data) => {
       if (data.tableId !== tableId) return;
-      notify(data.winnerId === user.id ? `🏆 ¡Ganaste ${data.winAmount.toLocaleString()} fichas!` : `El jugador ganó ${data.winAmount.toLocaleString()} fichas`, 4000);
+      setWinnerOverlay({ winners: [{ playerId: data.winnerId, winAmount: data.winAmount, hand: 'Todos foldaron' }], results: [], pot: data.winAmount });
+      setTimeout(() => setWinnerOverlay(null), 4000);
     });
     socket.on('player_bust', ({ playerId }) => {
       if (playerId === user.id) notify('Te quedaste sin fichas. Volvé al lobby.', 6000);
@@ -266,6 +271,33 @@ export default function Game() {
           )}
         </div>
       </div>
+
+      {/* ── Winner overlay ── */}
+      {winnerOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className="bg-gray-900/95 border-2 border-gold rounded-2xl px-8 py-6 shadow-2xl text-center max-w-sm mx-4 animate-bounce">
+            <div className="text-4xl mb-2">🏆</div>
+            {winnerOverlay.winners.map((w, i) => {
+              const isMe = w.playerId === user.id;
+              const result = winnerOverlay.results.find(r => r.playerId === w.playerId);
+              const playerName = result ? (isMe ? 'Vos' : w.playerId) : (isMe ? 'Vos' : 'Otro jugador');
+              // Try to get username from gameState
+              const playerObj = gameState?.players?.find(p => p.id === w.playerId);
+              const displayName = playerObj ? (isMe ? `¡${playerObj.username}!` : playerObj.username) : (isMe ? '¡Vos!' : 'Jugador');
+              return (
+                <div key={i} className="mb-2">
+                  <div className={`text-2xl font-bold ${isMe ? 'text-gold' : 'text-white'}`}>
+                    {isMe ? '🎉 ¡GANASTE!' : `Ganó ${displayName}`}
+                  </div>
+                  {result?.hand && <div className="text-green-400 font-semibold mt-1">{result.hand}</div>}
+                  <div className="text-gold text-xl mt-1">+{w.winAmount?.toLocaleString()} fichas</div>
+                </div>
+              );
+            })}
+            {winnerOverlay.pot > 0 && <div className="text-gray-400 text-sm mt-2">Pot total: {winnerOverlay.pot.toLocaleString()}</div>}
+          </div>
+        </div>
+      )}
 
       {/* ── Chat drawer (slides up on mobile) ── */}
       {showChat && (
