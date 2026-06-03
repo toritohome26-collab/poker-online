@@ -6,15 +6,12 @@ const { adminMiddleware } = require('../middleware/auth');
 const router = express.Router();
 router.use(adminMiddleware);
 
-// === Users ===
-
 router.get('/users', async (req, res) => {
-  const users = await db.users.find({}).sort({ createdAt: -1 });
+  const users = await db.users.find({}, { sort: { createdAt: -1 } });
   res.json(users.map(u => ({
     id: u.id, username: u.username, email: u.email,
     chips: u.chips, status: u.status, isAdmin: u.isAdmin,
-    totalWins: u.totalWins, totalHands: u.totalHands,
-    createdAt: u.createdAt
+    totalWins: u.totalWins, totalHands: u.totalHands, createdAt: u.createdAt
   })));
 });
 
@@ -64,20 +61,11 @@ router.delete('/users/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// === Tables / Tournaments ===
-
 router.post('/tables', async (req, res) => {
   const { name, smallBlind = 10, bigBlind = 20, maxPlayers = 9, minBuyIn = 200, maxBuyIn = 2000, isTournament = false, buyIn = 0, prizePool = 0 } = req.body;
   if (!name) return res.status(400).json({ error: 'Nombre requerido' });
-
   const id = uuidv4();
-  const table = {
-    _id: id, id, name,
-    small_blind: smallBlind, big_blind: bigBlind,
-    max_players: maxPlayers, min_buy_in: minBuyIn, max_buy_in: maxBuyIn,
-    isTournament, buyIn, prizePool,
-    createdAt: Date.now()
-  };
+  const table = { id, name, small_blind: smallBlind, big_blind: bigBlind, max_players: maxPlayers, min_buy_in: minBuyIn, max_buy_in: maxBuyIn, isTournament, buyIn, prizePool, createdAt: Date.now() };
   await db.tables.insert(table);
   res.status(201).json(table);
 });
@@ -87,14 +75,14 @@ router.delete('/tables/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// === Stats ===
-
 router.get('/stats', async (req, res) => {
-  const totalUsers = await db.users.count({});
-  const pendingUsers = await db.users.count({ status: 'pending' });
-  const activeUsers = await db.users.count({ status: 'active' });
-  const totalTables = await db.tables.count({});
-  const totalHands = await db.hands.count({});
+  const [totalUsers, pendingUsers, activeUsers, totalTables, totalHands] = await Promise.all([
+    db.users.count({}),
+    db.users.count({ status: 'pending' }),
+    db.users.count({ status: 'active' }),
+    db.tables.count({}),
+    db.hands.count({}),
+  ]);
   res.json({ totalUsers, pendingUsers, activeUsers, totalTables, totalHands });
 });
 
