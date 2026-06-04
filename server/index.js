@@ -55,6 +55,15 @@ app.get('/api/debug-users/:secret', async (req, res) => {
   res.json(users.map(u => ({ username: u.username, status: u.status, isAdmin: u.isAdmin, chips: u.chips })));
 });
 
+// Delete all users
+app.delete('/api/nuke-users/:secret', async (req, res) => {
+  const RESET_SECRET = process.env.RESET_SECRET;
+  if (!RESET_SECRET || req.params.secret !== RESET_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  const db = require('./db/database');
+  await db.users.remove({});
+  res.json({ ok: true, message: 'Todos los usuarios eliminados' });
+});
+
 // Servir el build de React en producción
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
