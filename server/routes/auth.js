@@ -50,7 +50,7 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
 
-  const user = await db.users.findOne({ username });
+  const user = await db.users.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
   if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
 
   const valid = await bcrypt.compare(password, user.passwordHash);

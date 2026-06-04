@@ -37,7 +37,7 @@ export default function Login() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Usuario</label>
-              <input className="input" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="tu_usuario" required autoFocus />
+              <input className="input" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="tu_usuario" required autoFocus autoCapitalize="none" autoCorrect="off" spellCheck="false" />
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-1">Contraseña</label>
