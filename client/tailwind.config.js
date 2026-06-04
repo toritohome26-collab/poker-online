@@ -3,8 +3,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        felt: { DEFAULT: '#076324', dark: '#054d1b', light: '#0a8430' },
-        gold: { DEFAULT: '#f0b429', dark: '#d4991a' }
+        felt: { DEFAULT: '#1a5c2e', dark: '#0d3d1c', light: '#2a7a3e' },
+        gold: { DEFAULT: '#f0b429', dark: '#d4991a', light: '#ffd060' },
+        navy: { DEFAULT: '#0a0e1a', light: '#111827' },
       }
     }
   },

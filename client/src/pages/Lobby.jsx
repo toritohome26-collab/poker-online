@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
+import { Chip } from '../components/Card';
 
 export default function Lobby() {
   const { user, logout } = useAuth();
@@ -19,8 +20,8 @@ export default function Lobby() {
 
   useEffect(() => {
     fetchTables();
-    const interval = setInterval(fetchTables, 5000);
-    return () => clearInterval(interval);
+    const iv = setInterval(fetchTables, 5000);
+    return () => clearInterval(iv);
   }, [fetchTables]);
 
   const fetchLeaderboard = async () => {
@@ -31,8 +32,7 @@ export default function Lobby() {
 
   const createTable = async (e) => {
     e.preventDefault();
-    setCreating(true);
-    setError('');
+    setCreating(true); setError('');
     try {
       const { data } = await API.post('/lobby/tables', newTable);
       setTables(t => [data, ...t]);
@@ -40,160 +40,202 @@ export default function Lobby() {
       navigate(`/game/${data.id}`);
     } catch (err) {
       setError(err.response?.data?.error || 'Error al crear mesa');
-    } finally {
-      setCreating(false);
-    }
+    } finally { setCreating(false); }
   };
 
-  const statusColor = (status) => {
-    if (status === 'waiting') return 'text-green-400';
-    if (['pre_flop','flop','turn','river'].includes(status)) return 'text-yellow-400';
-    return 'text-gray-400';
-  };
-
-  const statusLabel = (status, count) => {
-    if (status === 'waiting') return count < 2 ? 'Esperando jugadores' : 'Lista';
-    return 'En juego';
+  const statusInfo = (status, count) => {
+    if (status === 'waiting') return { label: count < 2 ? 'Esperando' : 'Lista', color: '#22c55e' };
+    if (['pre_flop','flop','turn','river'].includes(status)) return { label: 'En juego', color: '#f0b429' };
+    return { label: 'Finalizada', color: '#6b7280' };
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #0a0e1a 0%, #0d1220 100%)' }}>
 
       {/* ── Header ── */}
-      <header className="bg-gray-800 border-b border-gray-700 px-3 py-2">
-        {/* Top row: logo + username + chips */}
-        <div className="flex items-center justify-between mb-2">
+      <header style={{ background: 'linear-gradient(180deg, #111827, #0f172a)', borderBottom: '1px solid #1e2a40' }}>
+        {/* Top bar */}
+        <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">♠</span>
-            <span className="text-lg font-bold text-gold">PokerOnline</span>
+            <span className="text-2xl text-yellow-400">♠</span>
+            <div>
+              <div className="text-base font-black text-yellow-400 leading-none">PokerOnline</div>
+              <div className="text-xs text-gray-500 leading-none">Texas Hold'em</div>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="font-semibold text-sm">{user?.username}</div>
-            <div className="text-xs text-gold">🪙 {user?.chips?.toLocaleString()}</div>
+          {/* User info */}
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-sm font-bold">{user?.username}</div>
+              <div className="flex items-center gap-1 justify-end">
+                <Chip amount={user?.chips || 0} size={16} />
+                <span className="text-xs text-yellow-300 font-semibold">{user?.chips?.toLocaleString()}</span>
+              </div>
+            </div>
           </div>
         </div>
-        {/* Bottom row: action buttons */}
-        <div className="flex gap-2">
-          <button onClick={fetchLeaderboard} className="btn-ghost text-xs py-1 px-3 flex-1">🏆 Ranking</button>
+        {/* Nav buttons */}
+        <div className="px-4 pb-2 flex gap-2">
+          <button onClick={fetchLeaderboard}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-gray-300 transition-all active:scale-95"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #2a3040' }}>
+            🏆 Ranking
+          </button>
           {user?.isAdmin && (
-            <button onClick={() => navigate('/admin')} className="text-xs py-1 px-3 flex-1 rounded-lg bg-gold text-gray-900 font-bold">⚙ Admin</button>
+            <button onClick={() => navigate('/admin')}
+              className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
+              style={{ background: 'linear-gradient(180deg, #f0b429, #d4991a)', color: '#1a1a1a' }}>
+              ⚙ Admin
+            </button>
           )}
-          <button onClick={logout} className="btn-ghost text-xs py-1 px-3 flex-1">Salir</button>
+          <button onClick={logout}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-gray-400 transition-all active:scale-95"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #2a3040' }}>
+            Salir
+          </button>
         </div>
       </header>
 
       {/* ── Main ── */}
-      <main className="px-3 py-4 max-w-2xl mx-auto">
+      <main className="px-4 py-4 max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold">Mesas disponibles</h2>
-          <button onClick={() => setShowCreate(true)} className="btn-primary text-sm py-2 px-4">+ Crear</button>
+          <div>
+            <h2 className="text-base font-bold text-white">Mesas disponibles</h2>
+            <p className="text-xs text-gray-500">{tables.length} mesas activas</p>
+          </div>
+          <button onClick={() => setShowCreate(true)}
+            className="py-2 px-5 rounded-xl text-sm font-bold active:scale-95 transition-all"
+            style={{ background: 'linear-gradient(180deg, #f0b429, #d4991a)', color: '#1a1a1a', boxShadow: '0 4px 16px rgba(240,180,41,0.4)' }}>
+            + Crear
+          </button>
         </div>
 
         {tables.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
-            <div className="text-5xl mb-4">🃏</div>
-            <p className="text-lg">No hay mesas activas</p>
-            <p className="mt-1 text-sm">¡Creá la primera mesa!</p>
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4 opacity-30">🃏</div>
+            <p className="text-gray-500">No hay mesas activas</p>
+            <p className="text-gray-600 text-sm mt-1">Creá la primera mesa y empezá a jugar</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {tables.map(table => (
-              <div key={table.id} className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gold transition-colors">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="min-w-0 flex-1 mr-3">
-                    <h3 className="font-bold truncate">{table.name}</h3>
-                    <div className={`text-xs ${statusColor(table.status)}`}>
-                      {statusLabel(table.status, table.playerCount)}
+            {tables.map(table => {
+              const si = statusInfo(table.status, table.playerCount);
+              const pct = (table.playerCount / table.max_players) * 100;
+              return (
+                <div key={table.id} className="table-card rounded-2xl overflow-hidden"
+                  style={{ background: 'linear-gradient(180deg, #1a1f2e, #111827)', border: '1px solid #2a3040' }}>
+                  {/* Top stripe */}
+                  <div className="h-1" style={{ background: `linear-gradient(90deg, ${si.color}88, ${si.color}22)` }} />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="min-w-0 flex-1 mr-3">
+                        <h3 className="font-bold text-white truncate">{table.name}</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs font-semibold" style={{ color: si.color }}>{si.label}</span>
+                          {table.isTournament && (
+                            <span className="text-xs px-1.5 py-0.5 rounded font-semibold"
+                              style={{ background: '#6b21a822', color: '#a855f7', border: '1px solid #6b21a844' }}>
+                              Torneo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Player count */}
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-xl font-black text-white">{table.playerCount}<span className="text-sm text-gray-500 font-normal">/{table.max_players}</span></div>
+                        <div className="w-16 h-1.5 bg-gray-700 rounded-full mt-1">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: si.color }} />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Info row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-3 text-xs text-gray-500">
+                        <span>Blinds <span className="text-gray-300 font-semibold">{table.small_blind}/{table.big_blind}</span></span>
+                        <span>Buy-in <span className="text-gray-300 font-semibold">{table.min_buy_in}-{table.max_buy_in}</span></span>
+                      </div>
+                      <button onClick={() => navigate(`/game/${table.id}`)}
+                        disabled={table.playerCount >= table.max_players}
+                        className="py-2 px-5 rounded-xl text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
+                        style={{ background: table.playerCount >= table.max_players ? '#374151' : 'linear-gradient(180deg, #f0b429, #d4991a)', color: table.playerCount >= table.max_players ? '#9ca3af' : '#1a1a1a' }}>
+                        {table.playerCount >= table.max_players ? 'Llena' : 'Entrar →'}
+                      </button>
                     </div>
                   </div>
-                  <div className="text-right text-xs text-gray-400 flex-shrink-0">
-                    <div className="text-base font-bold text-white">{table.playerCount}/{table.max_players}</div>
-                    <div>jugadores</div>
-                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-gray-400">
-                    Blinds <span className="text-white">{table.small_blind}/{table.big_blind}</span>
-                    <span className="mx-2">·</span>
-                    Buy-in <span className="text-white">{table.min_buy_in}-{table.max_buy_in}</span>
-                  </div>
-                  <button
-                    onClick={() => navigate(`/game/${table.id}`)}
-                    disabled={table.playerCount >= table.max_players}
-                    className="btn-primary text-sm py-1.5 px-5 ml-2 flex-shrink-0"
-                  >
-                    {table.playerCount >= table.max_players ? 'Llena' : 'Entrar'}
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
 
       {/* ── Create Table Modal ── */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md border border-gray-600 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Nueva Mesa</h3>
-              <button onClick={() => setShowCreate(false)} className="text-gray-400 text-xl">✕</button>
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.8)' }}>
+          <div className="w-full max-w-md rounded-t-2xl overflow-y-auto" style={{ maxHeight: '90dvh', background: '#111827', border: '1px solid #2a3040', borderBottom: 'none' }}>
+            <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1e2a40' }}>
+              <h3 className="font-bold">Nueva Mesa</h3>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-800">✕</button>
             </div>
-            {error && <div className="bg-red-900/50 border border-red-700 text-red-300 px-3 py-2 rounded-lg mb-4 text-sm">{error}</div>}
-            <form onSubmit={createTable} className="space-y-3">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Nombre de la mesa</label>
-                <input className="input" value={newTable.name} onChange={e => setNewTable(f => ({ ...f, name: e.target.value }))} placeholder="Mi mesa de poker" required />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="p-4">
+              {error && <div className="bg-red-900/30 border border-red-700/50 text-red-300 px-3 py-2 rounded-lg mb-3 text-sm">{error}</div>}
+              <form onSubmit={createTable} className="space-y-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Small Blind</label>
-                  <input className="input" type="number" value={newTable.smallBlind} onChange={e => setNewTable(f => ({ ...f, smallBlind: +e.target.value, bigBlind: +e.target.value * 2 }))} min={1} />
+                  <label className="block text-xs text-gray-400 mb-1">Nombre</label>
+                  <input className="input" value={newTable.name} onChange={e => setNewTable(f => ({ ...f, name: e.target.value }))} placeholder="Mesa VIP" required />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[['Small Blind','smallBlind',1],['Big Blind','bigBlind',2],['Buy-in mín','minBuyIn',20],['Buy-in máx','maxBuyIn',1]].map(([label,key,min]) => (
+                    <div key={key}>
+                      <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                      <input className="input" type="number" value={newTable[key]} min={min}
+                        onChange={e => setNewTable(f => ({ ...f, [key]: +e.target.value }))} />
+                    </div>
+                  ))}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Big Blind</label>
-                  <input className="input" type="number" value={newTable.bigBlind} onChange={e => setNewTable(f => ({ ...f, bigBlind: +e.target.value }))} min={2} />
+                  <label className="block text-xs text-gray-400 mb-1">Jugadores: <span className="text-white font-bold">{newTable.maxPlayers}</span></label>
+                  <input type="range" min={2} max={9} value={newTable.maxPlayers}
+                    onChange={e => setNewTable(f => ({ ...f, maxPlayers: +e.target.value }))}
+                    className="w-full accent-yellow-400" />
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Buy-in mín</label>
-                  <input className="input" type="number" value={newTable.minBuyIn} onChange={e => setNewTable(f => ({ ...f, minBuyIn: +e.target.value }))} min={20} />
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setShowCreate(false)} className="btn-ghost flex-1">Cancelar</button>
+                  <button type="submit" disabled={creating} className="btn-primary flex-1 py-3">
+                    {creating ? 'Creando...' : 'Crear y entrar'}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Buy-in máx</label>
-                  <input className="input" type="number" value={newTable.maxBuyIn} onChange={e => setNewTable(f => ({ ...f, maxBuyIn: +e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Jugadores: {newTable.maxPlayers}</label>
-                <input type="range" min={2} max={9} value={newTable.maxPlayers} onChange={e => setNewTable(f => ({ ...f, maxPlayers: +e.target.value }))} className="w-full accent-yellow-400" />
-              </div>
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setShowCreate(false)} className="btn-ghost flex-1">Cancelar</button>
-                <button type="submit" disabled={creating} className="btn-primary flex-1">{creating ? 'Creando...' : 'Crear y entrar'}</button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Leaderboard Modal ── */}
       {showLeaderboard && (
-        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md border border-gray-600 max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">🏆 Ranking</h3>
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.8)' }}>
+          <div className="w-full max-w-md rounded-t-2xl overflow-hidden" style={{ maxHeight: '80dvh', background: '#111827', border: '1px solid #2a3040', borderBottom: 'none' }}>
+            <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1e2a40' }}>
+              <h3 className="font-bold">🏆 Ranking de Jugadores</h3>
               <button onClick={() => setShowLeaderboard(false)} className="text-gray-400 text-xl">✕</button>
             </div>
-            <div className="space-y-2">
+            <div className="overflow-y-auto p-3 space-y-2" style={{ maxHeight: 'calc(80dvh - 60px)' }}>
               {leaderboard.map((u, i) => (
-                <div key={u.username} className={`flex items-center justify-between p-3 rounded-lg ${u.username === user?.username ? 'bg-gold/20 border border-gold/50' : 'bg-gray-700'}`}>
+                <div key={u.username}
+                  className="flex items-center justify-between p-3 rounded-xl"
+                  style={{ background: u.username === user?.username ? 'rgba(240,180,41,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${u.username === user?.username ? 'rgba(240,180,41,0.3)' : '#2a3040'}` }}>
                   <div className="flex items-center gap-3">
-                    <span className={`font-bold w-5 text-sm ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-400' : 'text-gray-500'}`}>{i + 1}</span>
-                    <span className="font-medium text-sm">{u.username}</span>
+                    <span className="font-black w-6 text-center" style={{ color: i === 0 ? '#f0b429' : i === 1 ? '#9ca3af' : i === 2 ? '#cd7c2f' : '#4b5563', fontSize: i < 3 ? 16 : 13 }}>
+                      {i < 3 ? ['🥇','🥈','🥉'][i] : i + 1}
+                    </span>
+                    <span className={`font-semibold text-sm ${u.username === user?.username ? 'text-yellow-300' : 'text-white'}`}>{u.username}</span>
                   </div>
                   <div className="text-right">
-                    <div className="text-gold font-semibold text-sm">{u.chips?.toLocaleString()} 🪙</div>
-                    <div className="text-xs text-gray-400">{u.total_wins} victorias</div>
+                    <div className="flex items-center gap-1 justify-end">
+                      <Chip amount={u.chips} size={18} />
+                      <span className="text-yellow-400 font-bold text-sm">{u.chips?.toLocaleString()}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">{u.total_wins} victorias</div>
                   </div>
                 </div>
               ))}
