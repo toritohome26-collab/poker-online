@@ -39,9 +39,20 @@ app.post('/api/reset-password', async (req, res) => {
   if (!RESET_SECRET || secret !== RESET_SECRET) return res.status(403).json({ error: 'Forbidden' });
   const bcrypt = require('bcryptjs');
   const db = require('./db/database');
+  const user = await db.users.findOne({ username });
+  if (!user) return res.status(404).json({ error: `Usuario '${username}' no encontrado en la base de datos` });
   const hash = await bcrypt.hash(password, 10);
   await db.users.update({ username }, { $set: { passwordHash: hash, status: 'active' } });
   res.json({ ok: true, message: `Contraseña de ${username} actualizada` });
+});
+
+// List users (debug)
+app.get('/api/debug-users/:secret', async (req, res) => {
+  const RESET_SECRET = process.env.RESET_SECRET;
+  if (!RESET_SECRET || req.params.secret !== RESET_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  const db = require('./db/database');
+  const users = await db.users.find({}, { sort: { createdAt: -1 } });
+  res.json(users.map(u => ({ username: u.username, status: u.status, isAdmin: u.isAdmin, chips: u.chips })));
 });
 
 // Servir el build de React en producción
