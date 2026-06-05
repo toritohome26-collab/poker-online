@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "cd server && npm install && cd ../client && npm install && npm run build",
+    "postinstall": "cd server && npm install",
     "install:server": "cd server && npm install",
     "start": "node server/index.js",
     "dev:server": "cd server && npm run dev",
